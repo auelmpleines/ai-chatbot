@@ -2,7 +2,7 @@ export async function POST(req: Request) {
   const { query }: { query: string } = await req.json();
 
   try {
-    const response = await fetch('http://localhost:9200/filebeat-*/_search', {
+    const response = await fetch('http://localhost:9200/logs-*/_search', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -116,7 +116,7 @@ export async function generateElasticsearchPrompt(message: string): Promise<Elas
 
 export async function fetchFromElasticsearch(query: ElasticsearchQuery): Promise<any> {
   console.log('fetching from elasticsearch with query:', JSON.stringify(query));
-  const response = await fetch('http://localhost:9200/filebeat-*/_search', {
+  const response = await fetch('http://localhost:9200/logs-*/_search', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
