@@ -1,4 +1,4 @@
-import { type Message, StreamData, convertToCoreMessages, generateText, streamObject, streamText } from 'ai';
+import { CoreMessage, type Message, StreamData, convertToCoreMessages, streamObject, streamText } from 'ai';
 import { z } from 'zod';
 
 import { auth } from '@/app/(auth)/auth';
@@ -36,6 +36,35 @@ const weatherTools: AllowedTools[] = ['getWeather'];
 
 const allTools: AllowedTools[] = [...blocksTools, ...weatherTools];
 
+function shouldFetchElasticsearch(coreMessages: CoreMessage[], query: string): boolean {
+  const keywords = [
+    'search',
+    'find',
+    'look up',
+    'look for',
+    'query',
+    'retrieve',
+    'get',
+    'fetch',
+    'suchen',
+    'finden',
+    'nachschlagen',
+    'suchen nach',
+    'abfragen',
+    'abrufen',
+    'holen',
+    'abrufen',
+  ];
+
+  // we always fetch if it is the first message
+  if (coreMessages.length === 1) {
+    return true;
+  }
+
+  // otherwise we fetch if the query contains a keyword
+  return keywords.some((keyword) => query.toLowerCase().includes(keyword));
+}
+
 export async function POST(request: Request) {
   const { id, messages, modelId }: { id: string; messages: Array<Message>; modelId: string } = await request.json();
 
@@ -69,17 +98,19 @@ export async function POST(request: Request) {
     messages: [{ ...userMessage, id: generateUUID(), createdAt: new Date(), chatId: id }],
   });
 
-  // THIS IS EXPERIMENTAL CODE
-  // TODO: clean up this code
-  // FIXME: maybe only fetch the elasticsearch data on first message?
-  const optimizedQuery = await generateElasticsearchPrompt(userMessage.content.toString());
-  if (!optimizedQuery) {
-    return new Response('Failed to generate Elasticsearch prompt', { status: 500 });
+  const shouldFetchFromElasticsearch = shouldFetchElasticsearch(coreMessages, userMessage.content.toString());
+
+  // FIXME: THIS IS EXPERIMENTAL CODE
+  let elasticsearchResults = null;
+  if (shouldFetchFromElasticsearch) {
+    const optimizedQuery = await generateElasticsearchPrompt(userMessage.content.toString());
+    if (!optimizedQuery) {
+      return new Response('Failed to generate Elasticsearch prompt', { status: 500 });
+    }
+    elasticsearchResults = await fetchFromElasticsearch(optimizedQuery);
   }
-  const elasticsearchResults = await fetchFromElasticsearch(optimizedQuery);
 
   const databaseSearchEnabled = process.env.ENABLE_DATABASE_SEARCH === 'true';
-
   let databaseResults = null;
   if (databaseSearchEnabled) {
     // create a sql query based on prompt from user
@@ -96,10 +127,13 @@ export async function POST(request: Request) {
     }
   }
 
-  const systemPrompt = createUserElasticSearchPrompt(
-    JSON.stringify(elasticsearchResults),
-    JSON.stringify(databaseResults)
-  );
+  let systemPrompt: string;
+
+  if (shouldFetchFromElasticsearch) {
+    systemPrompt = createUserElasticSearchPrompt(JSON.stringify(elasticsearchResults), JSON.stringify(databaseResults));
+  } else {
+    systemPrompt = `Answer the user's prompt based on the previous messages in the context. If the user asked a question, provide a detailed answer. If the user made a statement, provide a relevant response.`;
+  }
 
   const streamingData = new StreamData();
 
