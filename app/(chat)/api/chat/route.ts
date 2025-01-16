@@ -22,9 +22,7 @@ import {
   fetchFromElasticsearch,
   generateElasticsearchPrompt,
 } from '@/lib/elasticsearch/helper';
-import { atlasdb } from '@/lib/atlasdb/queries';
-import { sql } from 'drizzle-orm';
-import { createAtlasDBQuery } from '@/lib/atlasdb/helper';
+import { generateMySQLPrompt, runGenerateSQLQuery } from '@/lib/atlasdb/natural-language-to-mysql';
 
 export const maxDuration = 60;
 
@@ -69,36 +67,41 @@ export async function POST(request: Request) {
     messages: [{ ...userMessage, id: generateUUID(), createdAt: new Date(), chatId: id }],
   });
 
-  // THIS IS EXPERIMENTAL CODE
-  // TODO: clean up this code
-  // FIXME: maybe only fetch the elasticsearch data on first message?
-  const optimizedQuery = await generateElasticsearchPrompt(userMessage.content.toString());
-  if (!optimizedQuery) {
-    return new Response('Failed to generate Elasticsearch prompt', { status: 500 });
-  }
-  const elasticsearchResults = await fetchFromElasticsearch(optimizedQuery);
+  // Store search results from different sources
+  const searchResults: Record<'elasticsearch' | 'database', any> = {
+    elasticsearch: null,
+    database: null,
+  };
 
-  const databaseSearchEnabled = process.env.ENABLE_DATABASE_SEARCH === 'true';
-
-  let databaseResults = null;
-  if (databaseSearchEnabled) {
-    // create a sql query based on prompt from user
-    // get results from atlas db
-    const atlasQuery = await createAtlasDBQuery(userMessage.content.toString());
-    if (!atlasQuery) {
-      return new Response('Failed to generate AtlasDB query', { status: 500 });
+  // FIXME: THIS IS EXPERIMENTAL CODE
+  // elasticsearch
+  try {
+    const optimizedQuery = await generateElasticsearchPrompt(userMessage.content.toString());
+    if (!optimizedQuery) {
+      return new Response('Failed to generate Elasticsearch prompt', { status: 500 });
     }
+    const elasticsearchResults = await fetchFromElasticsearch(optimizedQuery);
+    searchResults.elasticsearch = elasticsearchResults;
+  } catch (error) {
+    console.error('Error fetching from Elasticsearch:', error);
+  }
 
+  // database
+  const databaseSearchEnabled = process.env.ENABLE_DATABASE_SEARCH === 'true';
+  if (databaseSearchEnabled) {
     try {
-      databaseResults = await atlasdb.execute(sql.raw(atlasQuery)); // FIXME: sql.raw is potentially dangerous
+      const atlasQuery = await generateMySQLPrompt(userMessage.content.toString());
+      const databaseResults = await runGenerateSQLQuery(atlasQuery);
+      searchResults.database = databaseResults;
     } catch (error) {
       console.error('Error executing AtlasDB query: ', error);
     }
   }
 
   const systemPrompt = createUserElasticSearchPrompt(
-    JSON.stringify(elasticsearchResults),
-    JSON.stringify(databaseResults)
+    JSON.stringify(searchResults.elasticsearch),
+    JSON.stringify(searchResults.database),
+    userMessage.content.toString()
   );
 
   const streamingData = new StreamData();
