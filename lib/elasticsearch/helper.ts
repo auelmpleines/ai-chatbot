@@ -1,23 +1,28 @@
 import { openai } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 
-export const createUserElasticSearchPrompt = (elasticsearchResults: string, dbResults: string) => `
-  You are a conversational assistant. Construct a clear and informative response to the user message.
-  
-  Use the following Elasticsearch results as your primary source:
+export const createUserElasticSearchPrompt = (elasticsearchResults: string, dbResults: string, userQuery: string) => `
+  You are a conversational assistant. Construct a clear and informative response to the user message: "${userQuery}"
+
+  You have access to two data sources:
+
+  Elasticsearch results:
   "${elasticsearchResults}"
 
-  Use the following results from the database as another source:
+  Database results:
   "${dbResults}"
-  
+
   Your response should:
-  1. Directly address the user's query.
-  2. Incorporate relevant information from the Elasticsearch results.
-  3. Present the information in a user-friendly tone, avoiding technical jargon unless necessary.
-  4. Include links or metadata from the Elasticsearch results, if available, for user reference.
-  5. Avoid speculating or including information not present in the results.
-  6. always answer in the language the user used.
-  7. Only answer questions related to the Elasticsearch results.
+  1. Analyze both data sources and determine which one(s) contain relevant information for the query
+  2. If Elasticsearch results are relevant, use them as your primary source
+  3. If database results are relevant, incorporate that information
+  4. If both sources have relevant information, combine them coherently
+  5. If neither source has relevant information, politely indicate that you cannot help with this specific query
+  6. Present information in a user-friendly tone, avoiding technical jargon unless necessary
+  7. Include links or metadata from the results when available
+  8. Avoid speculating or including information not present in the results
+  9. Always answer in the same language as the user's query
+  10. Only provide information that is directly supported by either data source
 `;
 
 export const getElasticsearchResults = async (query: string) => {
