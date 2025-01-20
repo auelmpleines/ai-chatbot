@@ -15,6 +15,7 @@ import { BlockStreamHandler } from './block-stream-handler';
 import { MultimodalInput } from './multimodal-input';
 import { Messages } from './messages';
 import { useChat } from 'ai/react';
+import { MonthlyLogLevelChart, monthNames } from './Charts';
 
 export function Chat({
   id,
@@ -65,6 +66,45 @@ export function Chat({
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
 
+  const chartData = [
+    { month: new Date().getMonth(), timestamp: new Date(), message: 'test message', log_level: 'INFO' },
+    { month: new Date().getMonth(), timestamp: new Date(), message: 'test message 2', log_level: 'WARN' },
+    { month: new Date().getMonth(), timestamp: new Date(), message: 'test message', log_level: 'DEBUG' },
+    { month: new Date().getMonth() + 1, timestamp: new Date(), message: 'test message', log_level: 'INFO' },
+    { month: new Date().getMonth() + 2, timestamp: new Date(), message: 'test message 2', log_level: 'WARN' },
+    { month: new Date().getMonth() + 6, timestamp: new Date(), message: 'test message', log_level: 'DEBUG' },
+  ];
+
+  const chartDataReduced = chartData.reduce<
+    Array<{
+      month: string;
+      INFO: number;
+      WARN: number;
+      DEBUG: number;
+    }>
+  >((acc, curr) => {
+    const month = monthNames[curr.month % 12];
+    const existingIndex = acc.findIndex((item) => item.month === month);
+
+    if (existingIndex === -1) {
+      acc.push({
+        month,
+        INFO: curr.log_level === 'INFO' ? 1 : 0,
+        WARN: curr.log_level === 'WARN' ? 1 : 0,
+        DEBUG: curr.log_level === 'DEBUG' ? 1 : 0,
+      });
+    } else {
+      const existingMonthRecord = acc[existingIndex];
+      acc[existingIndex] = {
+        ...existingMonthRecord,
+        [curr.log_level as keyof typeof existingMonthRecord]:
+          existingMonthRecord[curr.log_level as keyof typeof existingMonthRecord] + 1,
+      };
+    }
+
+    return acc;
+  }, []);
+
   return (
     <>
       <div className="flex flex-col min-w-0 h-dvh bg-background">
@@ -95,6 +135,8 @@ export function Chat({
           />
         </form>
       </div>
+
+      <MonthlyLogLevelChart data={chartDataReduced} />
 
       <AnimatePresence>
         {block?.isVisible && (
