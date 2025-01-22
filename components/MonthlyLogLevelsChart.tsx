@@ -1,7 +1,6 @@
+'use client';
 import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from './ui/chart';
-
-export const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const monthlyLogLevelChartConfig = {
   INFO: {
