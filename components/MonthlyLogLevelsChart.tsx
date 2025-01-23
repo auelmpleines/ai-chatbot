@@ -5,17 +5,22 @@ import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '
 const monthlyLogLevelChartConfig = {
   INFO: {
     label: 'INFO',
-    color: '#2563eb',
+    color: '#60a5fa', // Lighter blue
   },
 
   WARN: {
     label: 'WARN',
-    color: '#60a5fa',
+    color: '#fbbf24', // Lighter orange
   },
 
   DEBUG: {
     label: 'DEBUG',
-    color: '#93c5fd',
+    color: '#bfdbfe', // Even lighter blue
+  },
+
+  ERROR: {
+    label: 'ERROR',
+    color: '#fecaca', // Lighter red
   },
 } satisfies ChartConfig;
 
@@ -27,6 +32,7 @@ export const MonthlyLogLevelChart = ({
     INFO: number;
     WARN: number;
     DEBUG: number;
+    ERROR: number;
   }[];
 }) => {
   return (
@@ -35,9 +41,10 @@ export const MonthlyLogLevelChart = ({
         <CartesianGrid vertical={false} />
         <XAxis dataKey="month" tickLine={false} tickMargin={10} axisLine={false} />
         <ChartTooltip content={<ChartTooltipContent />} />
-        <Bar key="INFO" dataKey="INFO" fill="blue" radius={4} />
-        <Bar key="WARN" dataKey="WARN" fill="yellow" radius={4} />
-        <Bar key="DEBUG" dataKey="DEBUG" fill="red" radius={4} />
+        <Bar key="INFO" dataKey="INFO" fill="var(--color-INFO)" radius={4} />
+        <Bar key="WARN" dataKey="WARN" fill="var(--color-WARN)" radius={4} />
+        <Bar key="DEBUG" dataKey="DEBUG" fill="var(--color-DEBUG)" radius={4} />
+        <Bar key="ERROR" dataKey="ERROR" fill="var(--color-ERROR)" radius={4} />
       </BarChart>
     </ChartContainer>
   );
