@@ -3,7 +3,6 @@ import { auth } from '@/app/(auth)/auth';
 import { customModel } from '@/lib/ai';
 import { models } from '@/lib/ai/models';
 import { deleteChatById, getChatById, saveChat, saveMessages } from '@/lib/db/queries';
-import type { Suggestion } from '@/lib/db/schema';
 import { generateUUID, getMostRecentUserMessage } from '@/lib/utils';
 
 import { generateTitleFromUserMessage } from '../../actions';
@@ -13,7 +12,7 @@ import {
   generateElasticsearchPrompt,
 } from '@/lib/elasticsearch/helper';
 import { generateMySQLPrompt, runGenerateSQLQuery } from '@/lib/atlasdb/natural-language-to-mysql';
-import { visualizeLogLevels } from '@/lib/tools';
+import { visualizeLogLevels, reduceChartData } from '@/lib/tools';
 
 export const maxDuration = 60;
 
@@ -71,12 +70,16 @@ export async function POST(request: Request) {
 
   // FIXME: this is experimental code for visualization of log data
   if (userMessage.content.toString().includes('visualization')) {
-    const logData = searchResults.elasticsearch;
+    // pre-process log data to avoid sending large data to the model
+    const preprocessedLogData = reduceChartData(searchResults.elasticsearch);
+
     const result = streamText({
       model: customModel(model.apiIdentifier),
-      system: `Here is the log data: ${JSON.stringify(logData)}. Use the "visualizeLogs" tool to create a visualization.`,
+      system: `Here is the log data: ${JSON.stringify(preprocessedLogData)}. Use the "visualizeLogs" tool to create a visualization.`,
       messages: coreMessages,
-      tools: { visualizeLogs: visualizeLogLevels },
+      tools: {
+        visualizeLogs: visualizeLogLevels,
+      },
     });
 
     return result.toDataStreamResponse();
