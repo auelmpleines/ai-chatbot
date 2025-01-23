@@ -36,17 +36,16 @@ export const generateQuery = (
   message: string
 ) => ` You are an expert in generating optimized Elasticsearch queries. Your task is as follows: 
 1. Generate an Elasticsearch query that retrieves the most relevant documents based on the user's message: "${message}". 
-2. Adjust the query_string.query dynamically to optimize relevance based on the user's intent.
-3. If the user's message includes time-related terms (e.g., "last month," "last year," or specific dates), interpret them and include a date range filter using the "@timestamp" field. 
-4. Avoid including any unnecessary fields or filters that do not directly contribute to improving the query results. 
-5. Return only a valid JSON object in the following structure: 
+2. Extract only the essential keywords from the user's message that directly relate to the content being searched (e.g., "logs," "warnings," "errors"). Ignore time-related terms (e.g., "last month," "yesterday") and filler words (e.g., "show me," "I want to see") as well as words like "visualization" as they are not relevant to the query string.
+3. Include a date range filter using the "@timestamp" field if the user's message contains time-related terms. Interpret these terms and translate them into the appropriate date range. If the user's message does not contain any time-related terms, omit the date range filter.
+4. The JSON structure must strictly follow this format: 
 { 
   "query": { 
     "query_string": { 
-      "query": ${JSON.stringify(message)}, 
+      "query": "EXTRACTED_KEYWORDS" 
     } 
   }, 
-  "filter": { 
+  "post_filter": { 
     "range": { 
       "@timestamp": { 
         "gte": "START_DATE", // Replace with actual start date if relevant
@@ -63,8 +62,10 @@ export const generateQuery = (
   ], 
   "size": 100
 } 
-6. Sort by relevance using the '@timestamp' field and prioritize accuracy by boosting fields or refining filters based on the user's input. 
-7. Absolutely no explanations, comments, or text outside the JSON object should be included.`;
+5. The "query_string.query" field must contain only the extracted keywords, and no additional fields or properties should be included.
+6. Use "post_filter" for filtering by date range instead of including it in the main query, to ensure results match the query string first before applying the filter.
+7. Ensure that the query structure is valid and strictly adheres to the above format without introducing any extraneous fields or invalid configurations.
+8. Absolutely no explanations, comments, or text outside the JSON object should be included. Only return a valid JSON object as specified above.`;
 
 async function getOptimizedQuery(elasticsearchPrompt: string): Promise<string | null> {
   try {
@@ -112,7 +113,6 @@ export async function generateElasticsearchPrompt(message: string): Promise<Elas
 }
 
 export async function fetchFromElasticsearch(query: ElasticsearchQuery): Promise<any> {
-  console.log('fetching from elasticsearch with query:', JSON.stringify(query));
   const response = await fetch('http://localhost:9200/logs-*/_search', {
     method: 'POST',
     headers: {
