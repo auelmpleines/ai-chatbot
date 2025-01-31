@@ -14,6 +14,7 @@ import { Markdown } from './markdown';
 import { MessageActions } from './message-actions';
 import equal from 'fast-deep-equal';
 import { MonthlyLogLevelChart } from './MonthlyLogLevelsChart';
+import { DynamicChart } from './DynamicChart';
 
 const PurePreviewMessage = ({
   chatId,
@@ -67,6 +68,12 @@ const PurePreviewMessage = ({
                     <div key={toolCallId}>
                       {toolName === 'visualizeLogs' ? (
                         <MonthlyLogLevelChart key={toolCallId} data={result} />
+                      ) : toolName === 'dynamicChart' ? (
+                        <DynamicChart
+                          key={toolCallId}
+                          chartConfig={result['chartConfig']}
+                          chartData={result['chartData']}
+                        />
                       ) : (
                         <pre>{JSON.stringify(result, null, 2)}</pre>
                       )}
@@ -77,7 +84,7 @@ const PurePreviewMessage = ({
                   <div
                     key={toolCallId}
                     className={cx({
-                      skeleton: ['getWeather'].includes(toolName),
+                      skeleton: ['visualizeLogs'].includes(toolName),
                     })}
                   >
                     {toolName === 'requestSuggestions' ? (

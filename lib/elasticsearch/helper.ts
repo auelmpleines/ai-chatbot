@@ -36,7 +36,7 @@ export const generateQuery = (
   message: string
 ) => ` You are an expert in generating optimized Elasticsearch queries. Your task is as follows: 
 1. Generate an Elasticsearch query that retrieves the most relevant documents based on the user's message: "${message}". 
-2. Extract only the essential keywords from the user's message that directly relate to the content being searched (e.g., "logs," "warnings," "errors"). Ignore time-related terms (e.g., "last month," "yesterday") and filler words (e.g., "show me," "I want to see") as well as words like "visualization" as they are not relevant to the query string.
+2. Extract only the essential keywords from the user's message that directly relate to the content being searched (e.g., "logs," "warnings," "errors"). Ignore time-related terms (e.g., "last month," "yesterday") and filler words (e.g., "show me," "I want to see") as well as words like "visualization" and "dynamic chart" as they are not relevant to the query string.
 3. Include a date range filter using the "@timestamp" field if the user's message contains time-related terms. Interpret these terms and translate them into the appropriate date range. If the user's message does not contain any time-related terms, omit the date range filter.
 4. The JSON structure must strictly follow this format: 
 { 

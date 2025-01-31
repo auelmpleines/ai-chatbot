@@ -1,18 +1,27 @@
-import { type Message, StreamData, convertToCoreMessages, streamText } from 'ai';
+import { type Message, StreamData, convertToCoreMessages, generateText, streamText, tool } from 'ai';
 import { auth } from '@/app/(auth)/auth';
 import { customModel } from '@/lib/ai';
 import { models } from '@/lib/ai/models';
 import { deleteChatById, getChatById, saveChat, saveMessages } from '@/lib/db/queries';
 import { generateUUID, getMostRecentUserMessage } from '@/lib/utils';
 
-import { generateTitleFromUserMessage } from '../../actions';
+import { generateChartConfig, generateTitleFromUserMessage } from '../../actions';
 import {
   createUserElasticSearchPrompt,
   fetchFromElasticsearch,
   generateElasticsearchPrompt,
 } from '@/lib/elasticsearch/helper';
 import { generateMySQLPrompt, runGenerateSQLQuery } from '@/lib/atlasdb/natural-language-to-mysql';
-import { visualizeLogLevels, reduceChartData } from '@/lib/tools';
+import {
+  visualizeLogLevels,
+  reduceChartDataForMothlyVisualization,
+  minimizeElasticsearchResponse,
+  dynamicallyVisualizeLogs,
+  logDataSchema,
+  chartConfigSchema,
+} from '@/lib/tools';
+import { user } from '@/lib/db/schema';
+import { z } from 'zod';
 
 export const maxDuration = 60;
 
@@ -69,9 +78,9 @@ export async function POST(request: Request) {
   }
 
   // FIXME: this is experimental code for visualization of log data
-  if (userMessage.content.toString().includes('visualization')) {
+  if (userMessage.content.toString().includes('visualization') && searchResults.elasticsearch != null) {
     // pre-process log data to avoid sending large data to the model
-    const preprocessedLogData = reduceChartData(searchResults.elasticsearch);
+    const preprocessedLogData = reduceChartDataForMothlyVisualization(searchResults.elasticsearch);
 
     const result = streamText({
       model: customModel(model.apiIdentifier),
@@ -79,6 +88,41 @@ export async function POST(request: Request) {
       messages: coreMessages,
       tools: {
         visualizeLogs: visualizeLogLevels,
+      },
+    });
+
+    return result.toDataStreamResponse();
+  }
+
+  // FIXME: for testing purposes of new feature: dynamic charts
+  if (userMessage.content.toString().includes('dynamic chart') && searchResults.elasticsearch != null) {
+    // TODO: transform this into chart data
+    const minimizedData = minimizeElasticsearchResponse(searchResults.elasticsearch);
+
+    const chartConfig = await generateChartConfig(minimizedData, userMessage.content.toString());
+
+    const result = streamText({
+      model: customModel(model.apiIdentifier),
+      system: `Use the "dynamicChart" tool to create a visualization.`,
+      messages: coreMessages,
+      tools: {
+        dynamicChart: tool({
+          description: 'Create a visualization of the log data',
+          parameters: z.object({
+            logData: logDataSchema.describe('the log data to be visualized'),
+            userQuery: z.string().describe('the original user input query'),
+            chartConfig: z.any().describe('the chart configuration object'), // FIXME: any type
+          }),
+          execute: async () => {
+            console.log('chart config: ', JSON.stringify(chartConfig));
+
+            return {
+              chartData: minimizedData,
+              chartConfig: chartConfig,
+              userQuery: userMessage.content.toString(),
+            };
+          },
+        }),
       },
     });
 
